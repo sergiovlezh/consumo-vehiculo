@@ -3,6 +3,20 @@ export type VehicleType = 'fuel' | 'electric' | 'hybrid'
 export type StationKind = 'electric' | 'fuel' | 'both'
 export type StationState = 'open' | 'maintenance' | 'closed' | 'unknown'
 export type EntryKind = 'note' | 'expense'
+export type TaskCategory = 'general' | 'document' | 'maintenance' | 'warranty'
+export type TaskStatus = 'pending' | 'done' | 'cancelled'
+
+// Vehicle task / reminder. Display-only: never feeds stats, no notifications.
+export interface VehicleTask {
+  id: string
+  title: string
+  details?: string
+  category: TaskCategory
+  startDate?: string
+  dueDate?: string
+  dueOdo?: number | null
+  status: TaskStatus
+}
 
 // Journal note or expense record. Optional odo; pinned items render on top.
 // ponytail: entries never feed consumption intervals — only recharges do.
@@ -71,6 +85,7 @@ export interface Vehicle {
   connectorIds?: string[]
   recharges: Recharge[]
   entries?: VehicleEntry[]
+  tasks?: VehicleTask[]
 }
 
 export interface DB {

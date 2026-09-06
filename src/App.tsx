@@ -3,12 +3,13 @@ import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from
 import type { NavigateFunction } from 'react-router'
 import { t } from './i18n'
 import { loadDB, loadSettings, saveDB, saveSettings } from './storage'
-import type { DB, Recharge, Settings, Station, Vehicle, VehicleEntry } from './types'
+import type { DB, Recharge, Settings, Station, Vehicle, VehicleEntry, VehicleTask } from './types'
 import { FabMenu, Header } from './components/ui'
 import { VehicleList } from './components/VehicleList'
 import { VehicleForm } from './components/VehicleForm'
 import { StationForm } from './components/StationForm'
 import { EntryForm } from './components/EntryForm'
+import { TaskForm } from './components/TaskForm'
 import { VehicleDetail } from './components/VehicleDetail'
 import { ChargeCalculator } from './components/ChargeCalculator'
 import { RechargeForm } from './components/RechargeForm'
@@ -140,6 +141,54 @@ const App = () => {
     }))
   }
 
+  const saveTask = (vehicleId: string, task: VehicleTask, isEdit: boolean) => {
+    setDb((prev) => ({
+      ...prev,
+      vehicles: prev.vehicles.map((v) =>
+        v.id === vehicleId
+          ? {
+              ...v,
+              tasks: isEdit
+                ? (v.tasks ?? []).map((x) => (x.id === task.id ? task : x))
+                : [...(v.tasks ?? []), task],
+            }
+          : v,
+      ),
+    }))
+    navigate(`/vehicles/${vehicleId}`)
+  }
+
+  const deleteTask = (vehicleId: string, taskId: string) => {
+    if (!window.confirm(t(L, 'confirmDelete'))) return
+    setDb((prev) => ({
+      ...prev,
+      vehicles: prev.vehicles.map((v) =>
+        v.id === vehicleId
+          ? { ...v, tasks: (v.tasks ?? []).filter((x) => x.id !== taskId) }
+          : v,
+      ),
+    }))
+  }
+
+  // ponytail: one-tap pending<->done; cancelled lives in the form only.
+  const toggleTaskDone = (vehicleId: string, taskId: string) => {
+    setDb((prev) => ({
+      ...prev,
+      vehicles: prev.vehicles.map((v) =>
+        v.id === vehicleId
+          ? {
+              ...v,
+              tasks: (v.tasks ?? []).map((x) =>
+                x.id === taskId
+                  ? { ...x, status: x.status === 'done' ? 'pending' : 'done' }
+                  : x,
+              ),
+            }
+          : v,
+      ),
+    }))
+  }
+
   return (
     <div className="mx-auto min-h-screen max-w-3xl">
       <Routes>
@@ -177,6 +226,7 @@ const App = () => {
                   onAddRecord={() => navigate('/recharges/new')}
                   onAddNote={() => navigate('/entries/new?kind=note')}
                   onAddExpense={() => navigate('/entries/new?kind=expense')}
+                  onAddTask={() => navigate('/tasks/new')}
                   lang={L}
                 />
               ) : null}
@@ -204,6 +254,8 @@ const App = () => {
               onDeleteRecharge={deleteRecharge}
               onDeleteEntry={deleteEntry}
               onTogglePin={togglePin}
+              onDeleteTask={deleteTask}
+              onToggleTaskDone={toggleTaskDone}
             />
           }
         />
@@ -253,6 +305,24 @@ const App = () => {
           path="/entries/new"
           element={
             <QuickEntryRoute db={db} settings={settings} onSave={saveEntry} />
+          }
+        />
+        <Route
+          path="/vehicles/:id/tasks/new"
+          element={
+            <TaskFormRoute db={db} settings={settings} onSave={saveTask} />
+          }
+        />
+        <Route
+          path="/vehicles/:id/tasks/:taskId/edit"
+          element={
+            <TaskFormRoute db={db} settings={settings} edit onSave={saveTask} />
+          }
+        />
+        <Route
+          path="/tasks/new"
+          element={
+            <QuickTaskRoute db={db} settings={settings} onSave={saveTask} />
           }
         />
         <Route
@@ -361,6 +431,8 @@ const DetailRoute = ({
   onDeleteRecharge,
   onDeleteEntry,
   onTogglePin,
+  onDeleteTask,
+  onToggleTaskDone,
 }: {
   db: DB
   settings: Settings
@@ -368,6 +440,8 @@ const DetailRoute = ({
   onDeleteRecharge: (vehicleId: string, recId: string) => void
   onDeleteEntry: (vehicleId: string, entryId: string) => void
   onTogglePin: (vehicleId: string, entryId: string) => void
+  onDeleteTask: (vehicleId: string, taskId: string) => void
+  onToggleTaskDone: (vehicleId: string, taskId: string) => void
 }) => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -382,6 +456,7 @@ const DetailRoute = ({
       onAddRecharge={() => navigate(`/vehicles/${v.id}/recharges/new`)}
       onAddNote={() => navigate(`/vehicles/${v.id}/entries/new?kind=note`)}
       onAddExpense={() => navigate(`/vehicles/${v.id}/entries/new?kind=expense`)}
+      onAddTask={() => navigate(`/vehicles/${v.id}/tasks/new`)}
       onEditVehicle={() => navigate(`/vehicles/${v.id}/edit`)}
       onToggleFavorite={() => onToggleFavorite(v.id)}
       isFavorite={db.favoriteVehicleId === v.id}
@@ -390,6 +465,9 @@ const DetailRoute = ({
       onEditEntry={(e) => navigate(`/vehicles/${v.id}/entries/${e.id}/edit`)}
       onDeleteEntry={(e) => onDeleteEntry(v.id, e.id)}
       onTogglePin={(e) => onTogglePin(v.id, e.id)}
+      onEditTask={(x) => navigate(`/vehicles/${v.id}/tasks/${x.id}/edit`)}
+      onDeleteTask={(x) => onDeleteTask(v.id, x.id)}
+      onToggleTaskDone={(x) => onToggleTaskDone(v.id, x.id)}
     />
   )
 }
@@ -492,6 +570,70 @@ const QuickEntryRoute = ({
         onCancel={() => navigate('/')}
         onSave={(e) => {
           if (vehicle) onSave(vehicle.id, e, false)
+        }}
+      />
+    </>
+  )
+}
+
+const TaskFormRoute = ({
+  db,
+  settings,
+  edit,
+  onSave,
+}: {
+  db: DB
+  settings: Settings
+  edit?: boolean
+  onSave: (vehicleId: string, t: VehicleTask, isEdit: boolean) => void
+}) => {
+  const { id, taskId } = useParams()
+  const navigate = useNavigate()
+  const L = settings.language
+  const v = db.vehicles.find((x) => x.id === id)
+  if (!v) return <Navigate to="/" replace />
+  const initial = edit ? (v.tasks ?? []).find((x) => x.id === taskId) ?? null : null
+  if (edit && !initial) return <Navigate to={`/vehicles/${id}`} replace />
+  const back = () => goBack(navigate, `/vehicles/${v.id}`)
+  return (
+    <>
+      <Header title={t(L, edit ? 'editTask' : 'addTask')} onBack={back} />
+      <TaskForm
+        initial={initial}
+        settings={settings}
+        onCancel={back}
+        onSave={(x) => onSave(v.id, x, !!initial)}
+      />
+    </>
+  )
+}
+
+const QuickTaskRoute = ({
+  db,
+  settings,
+  onSave,
+}: {
+  db: DB
+  settings: Settings
+  onSave: (vehicleId: string, t: VehicleTask, isEdit: boolean) => void
+}) => {
+  const navigate = useNavigate()
+  const L = settings.language
+  const [vehicleId, setVehicleId] = useState<string>(db.favoriteVehicleId ?? db.vehicles[0]?.id ?? '')
+  const vehicle = db.vehicles.find((v) => v.id === vehicleId) ?? null
+  if (db.vehicles.length === 0) return <Navigate to="/" replace />
+  return (
+    <>
+      <Header title={t(L, 'addTask')} onBack={() => navigate('/')} />
+      <TaskForm
+        initial={null}
+        settings={settings}
+        vehicles={db.vehicles}
+        vehicleId={vehicleId}
+        onVehicleChange={setVehicleId}
+        onCancel={() => navigate('/')}
+        onSave={(x) => {
+          if (vehicle) onSave(vehicle.id, x, false)
         }}
       />
     </>

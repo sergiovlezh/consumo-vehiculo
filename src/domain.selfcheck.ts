@@ -1,6 +1,6 @@
 // ponytail: the one runnable check for the consumption math. Run with `npm run check`.
-import { computeIntervals, catalogLabel, effectiveCapacity, kmPerPercent, kwhForLevels, levelsForKwh, seedConnectors, seedExpenseKinds, seedFuelGrades, stationsForVehicle, stats, visibleOrSelected } from './domain'
-import type { Settings, Station, Vehicle } from './types'
+import { computeIntervals, catalogLabel, effectiveCapacity, kmPerPercent, kwhForLevels, levelsForKwh, seedConnectors, seedExpenseKinds, seedFuelGrades, sortTasks, stationsForVehicle, stats, visibleOrSelected } from './domain'
+import type { Settings, Station, Vehicle, VehicleTask } from './types'
 
 // ponytail: local assert keeps node types out of the app tsconfig.
 const assert = {
@@ -153,6 +153,21 @@ const ev = (recharges: Vehicle['recharges'], capacity = 60): Vehicle => {
   assert.equal(computeIntervals(v).length, 1)
   assert.equal(stats(v, settings()).avg, 10)
   assert.equal(stats(v, settings()).totalSpent, 7)
+}
+
+// 10. Tasks sort pending first, due date asc, dateless last; done sinks.
+{
+  const mk = (id: string, status: VehicleTask['status'], dueDate?: string): VehicleTask => {
+    return { id, title: id, category: 'general', status, dueDate }
+  }
+  const sorted = sortTasks([
+    mk('done', 'done', '2026-01-01'),
+    mk('nodate', 'pending'),
+    mk('late', 'pending', '2026-03-01'),
+    mk('early', 'pending', '2026-01-10'),
+    mk('cancelled', 'cancelled', '2026-01-05'),
+  ]).map((x) => x.id)
+  assert.equal(sorted.join(','), 'early,late,nodate,done,cancelled')
 }
 
 console.log('domain.selfcheck: ok')

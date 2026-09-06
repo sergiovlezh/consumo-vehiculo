@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { t } from '../i18n'
-import { catalogLabel, sortedRecharges, stats, fmtNum, fmtMoney } from '../domain'
-import type { Recharge, Settings, Station, Vehicle, VehicleEntry } from '../types'
+import { catalogLabel, sortedRecharges, sortTasks, stats, fmtNum, fmtMoney } from '../domain'
+import type { Recharge, Settings, Station, Vehicle, VehicleEntry, VehicleTask } from '../types'
 import { FabMenu, Header, Segmented, StateDot, StatRow } from './ui'
 
 const EntryRow = ({
@@ -67,6 +67,86 @@ const EntryRow = ({
   )
 }
 
+const TaskRow = ({
+  task,
+  settings,
+  onToggleDone,
+  onEdit,
+  onDelete,
+}: {
+  task: VehicleTask
+  settings: Settings
+  onToggleDone: () => void
+  onEdit: () => void
+  onDelete: () => void
+}) => {
+  const L = settings.language
+  const finished = task.status !== 'pending'
+  const cat = t(
+    L,
+    task.category === 'general'
+      ? 'catGeneral'
+      : task.category === 'document'
+        ? 'catDocument'
+        : task.category === 'maintenance'
+          ? 'catMaintenance'
+          : 'catWarranty',
+  )
+  const range = [task.startDate, task.dueDate].filter(Boolean).join(' → ')
+  const sub = [
+    cat,
+    range || null,
+    task.dueOdo != null ? `${task.dueOdo.toLocaleString()} km` : null,
+    finished
+      ? t(L, task.status === 'done' ? 'stDone' : 'stCancelled')
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  return (
+    <div
+      className={`flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3 ${finished ? 'opacity-60' : ''}`}
+    >
+      <div className="flex-1 min-w-0">
+        <div className={`text-sm font-medium ${task.status === 'done' ? 'line-through' : ''}`}>
+          {task.title}
+        </div>
+        <div className="text-xs text-slate-500">{sub}</div>
+        {task.details ? (
+          <div className="text-sm whitespace-pre-wrap break-words">{task.details}</div>
+        ) : null}
+      </div>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={onToggleDone}
+          className={`rounded-full p-2 text-lg hover:bg-slate-100 min-w-[44px] min-h-[44px] flex items-center justify-center ${task.status === 'done' ? 'bg-green-100 text-green-700' : ''}`}
+          aria-label={t(L, 'stDone')}
+        >
+          ✓
+        </button>
+        <button
+          onClick={onEdit}
+          className="rounded-full p-2 text-lg hover:bg-slate-100 min-w-[44px] min-h-[44px] flex items-center justify-center"
+          aria-label={t(L, 'edit')}
+        >
+          ✎
+        </button>
+        <button
+          onClick={() => {
+            if (window.confirm(t(L, 'confirmDelete'))) {
+              onDelete()
+            }
+          }}
+          className="rounded-full p-2 text-lg hover:bg-slate-100 min-w-[44px] min-h-[44px] flex items-center justify-center text-red-600"
+          aria-label={t(L, 'delete')}
+        >
+          🗑
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export const VehicleDetail = ({
   vehicle,
   settings,
@@ -75,6 +155,7 @@ export const VehicleDetail = ({
   onAddRecharge,
   onAddNote,
   onAddExpense,
+  onAddTask,
   onEditVehicle,
   onToggleFavorite,
   isFavorite,
@@ -83,6 +164,9 @@ export const VehicleDetail = ({
   onEditEntry,
   onDeleteEntry,
   onTogglePin,
+  onEditTask,
+  onDeleteTask,
+  onToggleTaskDone,
 }: {
   vehicle: Vehicle
   settings: Settings
@@ -91,6 +175,7 @@ export const VehicleDetail = ({
   onAddRecharge: () => void
   onAddNote: () => void
   onAddExpense: () => void
+  onAddTask: () => void
   onEditVehicle: () => void
   onToggleFavorite: () => void
   isFavorite: boolean
@@ -99,6 +184,9 @@ export const VehicleDetail = ({
   onEditEntry: (e: VehicleEntry) => void
   onDeleteEntry: (e: VehicleEntry) => void
   onTogglePin: (e: VehicleEntry) => void
+  onEditTask: (x: VehicleTask) => void
+  onDeleteTask: (x: VehicleTask) => void
+  onToggleTaskDone: (x: VehicleTask) => void
 }) => {
   const L = settings.language
   const s = stats(vehicle, settings)
@@ -109,7 +197,8 @@ export const VehicleDetail = ({
   const expenses = entries.filter((e) => !e.pinned && e.kind === 'expense')
   const notes = entries.filter((e) => !e.pinned && e.kind === 'note')
   const expenseTotal = expenses.reduce((sum, e) => sum + (e.amount || 0), 0)
-  const [tab, setTab] = useState<'pinned' | 'journal' | 'recharges' | 'expenses'>('recharges')
+  const tasks = sortTasks(vehicle.tasks ?? [])
+  const [tab, setTab] = useState<'pinned' | 'journal' | 'recharges' | 'expenses' | 'tasks'>('recharges')
 
   const entryList = (list: VehicleEntry[]) => (
     <div className="space-y-2 p-4">
@@ -168,11 +257,30 @@ export const VehicleDetail = ({
             { value: 'journal', label: t(L, 'journal') },
             { value: 'recharges', label: t(L, 'recharge') },
             { value: 'expenses', label: t(L, 'expenses') },
+            { value: 'tasks', label: t(L, 'tasks') },
           ]}
         />
       </div>
       {tab === 'pinned' ? entryList(pinned) : null}
       {tab === 'journal' ? entryList(notes) : null}
+      {tab === 'tasks' ? (
+        <div className="space-y-2 p-4">
+          {tasks.length === 0 ? (
+            <div className="text-sm text-slate-500">{t(L, 'noTasks')}</div>
+          ) : (
+            tasks.map((x) => (
+              <TaskRow
+                key={x.id}
+                task={x}
+                settings={settings}
+                onToggleDone={() => onToggleTaskDone(x)}
+                onEdit={() => onEditTask(x)}
+                onDelete={() => onDeleteTask(x)}
+              />
+            ))
+          )}
+        </div>
+      ) : null}
       {tab === 'expenses' ? (
         <>
           {expenses.length > 0 ? (
@@ -250,7 +358,7 @@ export const VehicleDetail = ({
         )}
       </div>
       ) : null}
-      <FabMenu onAddRecord={onAddRecharge} onAddNote={onAddNote} onAddExpense={onAddExpense} lang={L} />
+      <FabMenu onAddRecord={onAddRecharge} onAddNote={onAddNote} onAddExpense={onAddExpense} onAddTask={onAddTask} lang={L} />
     </div>
   )
 }

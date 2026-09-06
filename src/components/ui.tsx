@@ -130,11 +130,13 @@ export const FabMenu = ({
   onAddRecord,
   onAddNote,
   onAddExpense,
+  onAddTask,
   lang,
 }: {
   onAddRecord: () => void
   onAddNote?: () => void
   onAddExpense?: () => void
+  onAddTask?: () => void
   lang: Lang
 }) => {
   const [open, setOpen] = useState(false)
@@ -155,6 +157,7 @@ export const FabMenu = ({
             {item(onAddRecord, '⚡', 'bg-blue-100 text-blue-600', t(lang, 'addRecharge'))}
             {onAddNote ? item(onAddNote, '📝', 'bg-amber-100 text-amber-600', t(lang, 'addNote')) : null}
             {onAddExpense ? item(onAddExpense, '🧾', 'bg-green-100 text-green-600', t(lang, 'addExpense')) : null}
+            {onAddTask ? item(onAddTask, '📋', 'bg-purple-100 text-purple-600', t(lang, 'addTask')) : null}
           </>
         )}
         <button

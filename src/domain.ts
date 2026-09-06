@@ -1,5 +1,5 @@
 import { t, type strings } from './i18n'
-import type { CatalogItem, Lang, Recharge, Settings, Station, Vehicle, VehicleType } from './types'
+import type { CatalogItem, Lang, Recharge, Settings, Station, Vehicle, VehicleTask, VehicleType } from './types'
 
 export const sortedRecharges = (v: Vehicle): Recharge[] =>
   [...(v.recharges ?? [])].sort(
@@ -60,16 +60,6 @@ export const levelsForKwh = (v: Vehicle, kwh: number): number | null => {
   return (kwh / cap) * 100
 }
 
-// km per 1% from the historical average. Null without capacity or history.
-// ponytail: (cap/100)/(avg/100) — the /100s cancel, so cap/avg.
-export const kmPerPercent = (v: Vehicle, settings: Settings): number | null => {
-  const cap = effectiveCapacity(v)
-  if (cap == null) return null
-  const { avg } = stats(v, settings)
-  if (avg == null || avg <= 0) return null
-  return cap / avg
-}
-
 // ponytail: user-managed catalogs. Stable ids survive renames and language
 // switches; seed labels are just starting points.
 export const seedFuelGrades = (lang: Lang): CatalogItem[] => {
@@ -119,6 +109,26 @@ export const stationsForVehicle = (stations: Station[], type: VehicleType): Stat
   stations.filter((s) =>
     type === 'electric' ? s.kind !== 'fuel' : s.kind !== 'electric',
   )
+
+// ponytail: pending first, then due date asc, dateless last. Done/cancelled sink.
+export const sortTasks = (tasks: VehicleTask[]): VehicleTask[] =>
+  [...tasks].sort((a, b) => {
+    const rank = (t: VehicleTask) => (t.status === 'pending' ? 0 : 1)
+    if (rank(a) !== rank(b)) return rank(a) - rank(b)
+    if (a.dueDate && b.dueDate && a.dueDate !== b.dueDate) return a.dueDate.localeCompare(b.dueDate)
+    if (a.dueDate !== b.dueDate) return a.dueDate ? -1 : 1
+    return b.id.localeCompare(a.id)
+  })
+
+// km per 1% from the historical average. Null without capacity or history.
+// ponytail: (cap/100)/(avg/100) — the /100s cancel, so cap/avg.
+export const kmPerPercent = (v: Vehicle, settings: Settings): number | null => {
+  const cap = effectiveCapacity(v)
+  if (cap == null) return null
+  const { avg } = stats(v, settings)
+  if (avg == null || avg <= 0) return null
+  return cap / avg
+}
 
 export interface Stats {
   lastOdo: number | null
