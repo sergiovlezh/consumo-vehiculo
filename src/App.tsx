@@ -173,7 +173,12 @@ const App = () => {
                 favoriteId={db.favoriteVehicleId}
               />
               {db.vehicles.length > 0 ? (
-                <FabMenu onAddRecord={() => navigate('/recharges/new')} lang={L} />
+                <FabMenu
+                  onAddRecord={() => navigate('/recharges/new')}
+                  onAddNote={() => navigate('/entries/new?kind=note')}
+                  onAddExpense={() => navigate('/entries/new?kind=expense')}
+                  lang={L}
+                />
               ) : null}
             </>
           }
@@ -242,6 +247,12 @@ const App = () => {
           path="/recharges/new"
           element={
             <QuickRechargeRoute db={db} settings={settings} onSave={saveRecharge} />
+          }
+        />
+        <Route
+          path="/entries/new"
+          element={
+            <QuickEntryRoute db={db} settings={settings} onSave={saveEntry} />
           }
         />
         <Route
@@ -447,6 +458,41 @@ const EntryFormRoute = ({
         settings={settings}
         onCancel={back}
         onSave={(e) => onSave(v.id, e, !!initial)}
+      />
+    </>
+  )
+}
+
+const QuickEntryRoute = ({
+  db,
+  settings,
+  onSave,
+}: {
+  db: DB
+  settings: Settings
+  onSave: (vehicleId: string, e: VehicleEntry, isEdit: boolean) => void
+}) => {
+  const [search] = useSearchParams()
+  const navigate = useNavigate()
+  const L = settings.language
+  const kind = search.get('kind') === 'expense' ? 'expense' : 'note'
+  const [vehicleId, setVehicleId] = useState<string>(db.favoriteVehicleId ?? db.vehicles[0]?.id ?? '')
+  const vehicle = db.vehicles.find((v) => v.id === vehicleId) ?? null
+  if (db.vehicles.length === 0) return <Navigate to="/" replace />
+  return (
+    <>
+      <Header title={t(L, kind === 'expense' ? 'addExpense' : 'addNote')} onBack={() => navigate('/')} />
+      <EntryForm
+        initial={null}
+        kind={kind}
+        settings={settings}
+        vehicles={db.vehicles}
+        vehicleId={vehicleId}
+        onVehicleChange={setVehicleId}
+        onCancel={() => navigate('/')}
+        onSave={(e) => {
+          if (vehicle) onSave(vehicle.id, e, false)
+        }}
       />
     </>
   )

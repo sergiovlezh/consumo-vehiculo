@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import { t } from '../i18n'
 import { catalogLabel, sortedRecharges, stats, fmtNum, fmtMoney } from '../domain'
 import type { Recharge, Settings, Station, Vehicle, VehicleEntry } from '../types'
-import { FabMenu, Header, StateDot, StatRow } from './ui'
+import { FabMenu, Header, Segmented, StateDot, StatRow } from './ui'
 
 const EntryRow = ({
   entry,
@@ -108,6 +109,26 @@ export const VehicleDetail = ({
   const expenses = entries.filter((e) => !e.pinned && e.kind === 'expense')
   const notes = entries.filter((e) => !e.pinned && e.kind === 'note')
   const expenseTotal = expenses.reduce((sum, e) => sum + (e.amount || 0), 0)
+  const [tab, setTab] = useState<'pinned' | 'journal' | 'recharges' | 'expenses'>('recharges')
+
+  const entryList = (list: VehicleEntry[]) => (
+    <div className="space-y-2 p-4">
+      {list.length === 0 ? (
+        <div className="text-sm text-slate-500">{t(L, 'noEntries')}</div>
+      ) : (
+        list.map((e) => (
+          <EntryRow
+            key={e.id}
+            entry={e}
+            settings={settings}
+            onEdit={() => onEditEntry(e)}
+            onDelete={() => onDeleteEntry(e)}
+            onTogglePin={() => onTogglePin(e)}
+          />
+        ))
+      )}
+    </div>
+  )
 
   return (
     <div className="pb-28">
@@ -138,67 +159,31 @@ export const VehicleDetail = ({
       <div className="space-y-3 p-4">
         <StatRow s={s} settings={settings} />
       </div>
-      {pinned.length > 0 ? (
-        <>
-          <div className="px-4">
-            <h2 className="text-sm font-semibold text-slate-700">{t(L, 'pinned')}</h2>
-          </div>
-          <div className="space-y-2 p-4">
-            {pinned.map((e) => (
-              <EntryRow
-                key={e.id}
-                entry={e}
-                settings={settings}
-                onEdit={() => onEditEntry(e)}
-                onDelete={() => onDeleteEntry(e)}
-                onTogglePin={() => onTogglePin(e)}
-              />
-            ))}
-          </div>
-        </>
-      ) : null}
-      {expenses.length > 0 ? (
-        <>
-          <div className="flex items-baseline justify-between px-4">
-            <h2 className="text-sm font-semibold text-slate-700">{t(L, 'expenses')}</h2>
-            <span className="text-sm font-medium">{fmtMoney(expenseTotal, settings.currency)}</span>
-          </div>
-          <div className="space-y-2 p-4">
-            {expenses.map((e) => (
-              <EntryRow
-                key={e.id}
-                entry={e}
-                settings={settings}
-                onEdit={() => onEditEntry(e)}
-                onDelete={() => onDeleteEntry(e)}
-                onTogglePin={() => onTogglePin(e)}
-              />
-            ))}
-          </div>
-        </>
-      ) : null}
-      {notes.length > 0 ? (
-        <>
-          <div className="px-4">
-            <h2 className="text-sm font-semibold text-slate-700">{t(L, 'journal')}</h2>
-          </div>
-          <div className="space-y-2 p-4">
-            {notes.map((e) => (
-              <EntryRow
-                key={e.id}
-                entry={e}
-                settings={settings}
-                onEdit={() => onEditEntry(e)}
-                onDelete={() => onDeleteEntry(e)}
-                onTogglePin={() => onTogglePin(e)}
-              />
-            ))}
-          </div>
-        </>
-      ) : null}
       <div className="px-4">
-        <h2 className="text-sm font-semibold text-slate-700">{t(L, 'recharge')}</h2>
+        <Segmented
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'pinned', label: t(L, 'pinned') },
+            { value: 'journal', label: t(L, 'journal') },
+            { value: 'recharges', label: t(L, 'recharge') },
+            { value: 'expenses', label: t(L, 'expenses') },
+          ]}
+        />
       </div>
+      {tab === 'pinned' ? entryList(pinned) : null}
+      {tab === 'journal' ? entryList(notes) : null}
+      {tab === 'expenses' ? (
+        <>
+          {expenses.length > 0 ? (
+            <div className="flex justify-end px-4 pt-2">
+              <span className="text-sm font-medium">{fmtMoney(expenseTotal, settings.currency)}</span>
+            </div>
+          ) : null}
+          {entryList(expenses)}
+        </>
+      ) : null}
+      {tab === 'recharges' ? (
       <div className="space-y-2 p-4">
         {recs.length === 0 ? (
           <div className="text-sm text-slate-500">{t(L, 'noRecharges')}</div>
@@ -264,6 +249,7 @@ export const VehicleDetail = ({
             })
         )}
       </div>
+      ) : null}
       <FabMenu onAddRecord={onAddRecharge} onAddNote={onAddNote} onAddExpense={onAddExpense} lang={L} />
     </div>
   )

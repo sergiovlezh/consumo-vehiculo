@@ -2,19 +2,25 @@ import { useState } from 'react'
 import { t } from '../i18n'
 import { uid } from '../storage'
 import { visibleOrSelected } from '../domain'
-import type { EntryKind, Settings, VehicleEntry } from '../types'
+import type { EntryKind, Settings, Vehicle, VehicleEntry } from '../types'
 import { Button, Field } from './ui'
 
 export const EntryForm = ({
   initial,
   kind,
   settings,
+  vehicles,
+  vehicleId,
+  onVehicleChange,
   onSave,
   onCancel,
 }: {
   initial: VehicleEntry | null
   kind: EntryKind
   settings: Settings
+  vehicles?: Vehicle[]
+  vehicleId?: string
+  onVehicleChange?: (id: string) => void
   onSave: (e: VehicleEntry) => void
   onCancel: () => void
 }) => {
@@ -52,6 +58,21 @@ export const EntryForm = ({
 
   return (
     <div className="space-y-4 p-4">
+      {vehicles && vehicles.length > 0 && onVehicleChange ? (
+        <Field label={t(L, 'vehiclePicker')}>
+          <select
+            value={vehicleId ?? ''}
+            onChange={(e) => onVehicleChange(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 min-h-[44px]"
+          >
+            {vehicles.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      ) : null}
       <Field label={t(L, 'date')}>
         <input
           type="date"

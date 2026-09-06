@@ -106,6 +106,7 @@ const STRINGS = {
     comment: 'Comment',
     optional: 'optional',
     pin: 'Pin',
+    noEntries: 'No entries yet.',
   },
   es: {
     appName: 'Consumo de Vehículo',
@@ -212,6 +213,7 @@ const STRINGS = {
     comment: 'Comentario',
     optional: 'opcional',
     pin: 'Fijar',
+    noEntries: 'Aún no hay registros.',
   },
 } as const
 
