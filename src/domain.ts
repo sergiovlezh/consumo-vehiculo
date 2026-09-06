@@ -1,5 +1,5 @@
 import { t, type strings } from './i18n'
-import type { Lang, Recharge, Settings, Vehicle } from './types'
+import type { CatalogItem, Lang, Recharge, Settings, Station, Vehicle, VehicleType } from './types'
 
 export const sortedRecharges = (v: Vehicle): Recharge[] =>
   [...(v.recharges ?? [])].sort(
@@ -69,6 +69,45 @@ export const kmPerPercent = (v: Vehicle, settings: Settings): number | null => {
   if (avg == null || avg <= 0) return null
   return cap / avg
 }
+
+// ponytail: user-managed catalogs. Stable ids survive renames and language
+// switches; seed labels are just starting points.
+export const seedFuelGrades = (lang: Lang): CatalogItem[] => {
+  const labels =
+    lang === 'es' ? ['Corriente', 'Plus', 'Extra'] : ['Regular', 'Plus', 'Premium']
+  return ['regular', 'plus', 'premium'].map((id, i) => ({ id, label: labels[i] }))
+}
+
+const CONNECTOR_SEED: [string, string][] = [
+  ['type1', 'Type 1 (J1772)'],
+  ['type2', 'Type 2 (Mennekes)'],
+  ['ccs1', 'CCS1'],
+  ['ccs2', 'CCS2'],
+  ['chademo', 'CHAdeMO'],
+  ['gbt', 'GB/T'],
+  ['tesla', 'Tesla (NACS)'],
+]
+
+export const seedConnectors = (): CatalogItem[] =>
+  CONNECTOR_SEED.map(([id, label]) => ({ id, label }))
+
+// Resolve a catalog id to its label. Hidden items still resolve; deleted ones
+// yield null (UI renders '—').
+export const catalogLabel = (items: CatalogItem[], id: string | null | undefined): string | null => {
+  if (!id) return null
+  return items.find((i) => i.id === id)?.label ?? null
+}
+
+// Picker options: visible items plus already-selected hidden ones, so editing
+// never loses a value.
+export const visibleOrSelected = (items: CatalogItem[], selected: string[]): CatalogItem[] =>
+  items.filter((i) => !i.hidden || selected.includes(i.id))
+
+// Stations a vehicle can use. Capabilities stay display-only (no enforcement).
+export const stationsForVehicle = (stations: Station[], type: VehicleType): Station[] =>
+  stations.filter((s) =>
+    type === 'electric' ? s.kind !== 'fuel' : s.kind !== 'electric',
+  )
 
 export interface Stats {
   lastOdo: number | null

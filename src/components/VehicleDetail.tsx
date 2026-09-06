@@ -1,11 +1,12 @@
 import { t } from '../i18n'
-import { sortedRecharges, stats, fmtNum, fmtMoney } from '../domain'
-import type { Recharge, Settings, Vehicle } from '../types'
-import { FabMenu, Header, StatRow } from './ui'
+import { catalogLabel, sortedRecharges, stats, fmtNum, fmtMoney } from '../domain'
+import type { Recharge, Settings, Station, Vehicle } from '../types'
+import { FabMenu, Header, StateDot, StatRow } from './ui'
 
 export const VehicleDetail = ({
   vehicle,
   settings,
+  stations,
   onBack,
   onAddRecharge,
   onEditVehicle,
@@ -16,6 +17,7 @@ export const VehicleDetail = ({
 }: {
   vehicle: Vehicle
   settings: Settings
+  stations: Station[]
   onBack: () => void
   onAddRecharge: () => void
   onEditVehicle: () => void
@@ -68,7 +70,10 @@ export const VehicleDetail = ({
           recs
             .slice()
             .reverse()
-            .map((r) => (
+            .map((r) => {
+              const station = r.stationId ? stations.find((s) => s.id === r.stationId) ?? null : null
+              const grade = catalogLabel(settings.fuelGrades, r.fuelGradeId)
+              return (
               <div
                 key={r.id}
                 className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3"
@@ -78,10 +83,20 @@ export const VehicleDetail = ({
                   <div className="font-mono">{r.odo.toLocaleString()} km</div>
                   <div className="text-sm">
                     {fmtNum(r.amount)} {isElectric ? settings.energyUnit : settings.volumeUnit}
+                    {grade ? ` · ${grade}` : ''}
                   </div>
                   <div className="text-xs text-slate-500">
                     {r.startLevel != null ? `${r.startLevel}% → ` : ''}{r.endLevel != null ? `${r.endLevel}%` : ''}
                   </div>
+                  {r.place ? (
+                    <div className="text-xs text-slate-500">📍 {r.place}</div>
+                  ) : null}
+                  {station ? (
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                      <StateDot state={station.state} />
+                      <span className="truncate">{station.name}</span>
+                    </div>
+                  ) : null}
                   {r.pricePerUnit > 0 && (
                     <div className="text-xs text-slate-500">
                       {fmtMoney(r.amount * r.pricePerUnit, settings.currency)}
@@ -109,7 +124,8 @@ export const VehicleDetail = ({
                   </button>
                 </div>
               </div>
-            ))
+              )
+            })
         )}
       </div>
       <FabMenu onAddRecord={onAddRecharge} />

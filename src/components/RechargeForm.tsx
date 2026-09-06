@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { t } from '../i18n'
 import { uid } from '../storage'
-import { sortedRecharges } from '../domain'
-import type { Recharge, Settings, Vehicle } from '../types'
-import { Button, Field, Header } from './ui'
+import { sortedRecharges, stationsForVehicle, visibleOrSelected } from '../domain'
+import type { Recharge, Settings, Station, Vehicle } from '../types'
+import { Button, Field, Header, StateDot } from './ui'
 
 type LastEdited = 'amount' | 'unit' | 'total' | null
 
@@ -11,6 +11,7 @@ export const RechargeForm = ({
   vehicle,
   vehicles,
   settings,
+  stations,
   vehicleId,
   onVehicleChange,
   onSave,
@@ -22,6 +23,7 @@ export const RechargeForm = ({
   vehicle: Vehicle | null
   vehicles: Vehicle[]
   settings: Settings
+  stations: Station[]
   vehicleId?: string
   onVehicleChange?: (id: string) => void
   onSave: (vehicleId: string, rec: Recharge) => void
@@ -35,6 +37,7 @@ export const RechargeForm = ({
   const isElectric = activeVehicle?.type === 'electric'
   const last = activeVehicle ? sortedRecharges(activeVehicle).slice(-1)[0] : undefined
   const isEditing = !!initial
+  const stationOptions = activeVehicle ? stationsForVehicle(stations, activeVehicle.type) : []
 
   const today = new Date().toISOString().slice(0, 10)
   const [date, setDate] = useState(initial?.date ?? today)
@@ -47,8 +50,17 @@ export const RechargeForm = ({
     ? String(initial.pricePerUnit * initial.amount)
     : '')
   const [notes, setNotes] = useState(initial?.notes ?? '')
+  const [place, setPlace] = useState(initial?.place ?? '')
+  const [fuelGradeId, setFuelGradeId] = useState(
+    initial?.fuelGradeId ?? (activeVehicle && !isElectric ? activeVehicle.fuelGradeId ?? '' : ''),
+  )
+  const [stationName, setStationName] = useState(
+    initial?.stationId ? stations.find((s) => s.id === initial.stationId)?.name ?? '' : '',
+  )
   const [startLevel, setStartLevel] = useState(initial?.startLevel != null ? String(initial.startLevel) : '')
   const [lastEdited, setLastEdited] = useState<LastEdited>(null)
+
+  const station = stationOptions.find((s) => s.name === stationName) ?? null
 
   const amtUnit = isElectric ? settings.energyUnit : settings.volumeUnit
   const amtLabel = `${t(L, 'amount')} (${amtUnit})`
@@ -122,6 +134,10 @@ export const RechargeForm = ({
       endLevel: endN,
       fullCharge,
       notes: notes || undefined,
+      place: place.trim() || undefined,
+      stationId: station?.id,
+      // ponytail: display-only, non-electric; never enters stats
+      fuelGradeId: !isElectric && fuelGradeId ? fuelGradeId : undefined,
       // ponytail: display-only, electric only; never enters stats
       startLevel: isElectric && startLevel !== '' && isFinite(sN) ? sN : undefined,
     }
@@ -165,6 +181,27 @@ export const RechargeForm = ({
               placeholder={last ? String(last.odo) : '125430'}
             />
           </Field>
+          <Field label={t(L, 'selectStation')}>
+            <input
+              value={stationName}
+              onChange={(e) => setStationName(e.target.value)}
+              list="station-pick"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 min-h-[44px]"
+              placeholder="Terpel La Paz"
+            />
+            <datalist id="station-pick">
+              {stationOptions.map((s) => (
+                <option key={s.id} value={s.name} />
+              ))}
+            </datalist>
+            {station ? (
+              <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
+                <StateDot state={station.state} />
+                <span>{t(L, station.state === 'open' ? 'stOpen' : station.state === 'maintenance' ? 'stMaintenance' : station.state === 'closed' ? 'stClosed' : 'stUnknown')}</span>
+                {station.state !== 'open' ? <span>· {t(L, 'stationWarn')}</span> : null}
+              </div>
+            ) : null}
+          </Field>
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -200,7 +237,22 @@ export const RechargeForm = ({
                 placeholder="20"
               />
             </Field>
-          ) : null}
+          ) : (
+            <Field label={t(L, 'fuelType')}>
+              <select
+                value={fuelGradeId}
+                onChange={(e) => setFuelGradeId(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 min-h-[44px]"
+              >
+                <option value="">—</option>
+                {visibleOrSelected(settings.fuelGrades, fuelGradeId ? [fuelGradeId] : []).map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <Field label={amtLabel}>
             <input
               inputMode="decimal"
@@ -245,6 +297,13 @@ export const RechargeForm = ({
                 = {preview.total.toFixed(2)} {settings.currency}
               </div>
             ) : null}
+          </Field>
+          <Field label={t(L, 'place')}>
+            <input
+              value={place}
+              onChange={(e) => setPlace(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 min-h-[44px]"
+            />
           </Field>
           <Field label={t(L, 'notes')}>
             <input

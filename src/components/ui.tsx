@@ -2,7 +2,49 @@ import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { fmtNum, fmtMoney, type Stats } from '../domain'
 import { t } from '../i18n'
-import type { Settings } from '../types'
+import type { Settings, StationState } from '../types'
+
+const STATE_DOT: Record<StationState, string> = {
+  open: 'bg-green-500',
+  maintenance: 'bg-amber-500',
+  closed: 'bg-red-500',
+  unknown: 'bg-slate-300',
+}
+
+export const StateDot = ({ state }: { state: StationState }) => (
+  <span
+    aria-hidden
+    className={`inline-block h-3 w-3 flex-none rounded-full ${STATE_DOT[state] ?? STATE_DOT.unknown}`}
+  />
+)
+
+// ponytail: multi-select chips for connectors / fuel grades. No lib, just buttons.
+export const ChipSelect = ({
+  options,
+  selected,
+  onChange,
+}: {
+  options: { value: string; label: string }[]
+  selected: string[]
+  onChange: (v: string[]) => void
+}) => (
+  <div className="mt-1 flex flex-wrap gap-2">
+    {options.map((o) => {
+      const on = selected.includes(o.value)
+      return (
+        <button
+          key={o.value}
+          onClick={() => onChange(on ? selected.filter((v) => v !== o.value) : [...selected, o.value])}
+          className={`rounded-xl border px-3 py-2 text-sm min-h-[44px] ${
+            on ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white'
+          }`}
+        >
+          {o.label}
+        </button>
+      )
+    })}
+  </div>
+)
 
 export const Stat = ({
   label,

@@ -1,8 +1,79 @@
 import { useRef, useState } from 'react'
 import { t } from '../i18n'
-import { exportAll, importAll } from '../storage'
-import type { DB, Lang, Settings } from '../types'
-import { Button, Field, Segmented } from './ui'
+import { exportAll, importAll, uid } from '../storage'
+import type { CatalogItem, DB, Lang, Settings } from '../types'
+import { Button, Field, Segmented, StateDot } from './ui'
+
+// ponytail: one editor reused for fuel grades and connectors. Hidden keeps old
+// refs resolving; true delete renders dangling refs as '—'.
+const CatalogEditor = ({
+  title,
+  items,
+  onChange,
+  lang,
+}: {
+  title: string
+  items: CatalogItem[]
+  onChange: (items: CatalogItem[]) => void
+  lang: Lang
+}) => {
+  const [draft, setDraft] = useState('')
+  return (
+    <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+      <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
+      {items.map((item) => (
+        <div key={item.id} className="flex items-center gap-2">
+          <input
+            value={item.label}
+            onChange={(e) =>
+              onChange(items.map((x) => (x.id === item.id ? { ...x, label: e.target.value } : x)))
+            }
+            className="flex-1 min-w-0 rounded-xl border border-slate-300 px-3 py-2 min-h-[44px]"
+          />
+          <label className="flex items-center gap-1 text-sm text-slate-600 whitespace-nowrap">
+            <input
+              type="checkbox"
+              checked={!!item.hidden}
+              onChange={(e) =>
+                onChange(items.map((x) => (x.id === item.id ? { ...x, hidden: e.target.checked || undefined } : x)))
+              }
+              className="h-5 w-5"
+            />
+            {t(lang, 'hide')}
+          </label>
+          <button
+            onClick={() => {
+              if (window.confirm(t(lang, 'confirmDelete'))) {
+                onChange(items.filter((x) => x.id !== item.id))
+              }
+            }}
+            className="rounded-full p-2 text-lg hover:bg-slate-100 min-w-[44px] min-h-[44px] flex items-center justify-center text-red-600"
+            aria-label={t(lang, 'delete')}
+          >
+            🗑
+          </button>
+        </div>
+      ))}
+      <div className="flex gap-2">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          className="flex-1 min-w-0 rounded-xl border border-slate-300 px-3 py-2 min-h-[44px]"
+        />
+        <Button
+          onClick={() => {
+            if (!draft.trim()) return
+            onChange([...items, { id: uid(), label: draft.trim() }])
+            setDraft('')
+          }}
+          className="min-h-[44px] flex-none"
+        >
+          {t(lang, 'add')}
+        </Button>
+      </div>
+    </div>
+  )
+}
 
 export const SettingsView = ({
   settings,
@@ -12,6 +83,9 @@ export const SettingsView = ({
   onAddVehicle,
   onEditVehicle,
   onDeleteVehicle,
+  onAddStation,
+  onEditStation,
+  onDeleteStation,
 }: {
   settings: Settings
   onChange: (s: Settings) => void
@@ -20,6 +94,9 @@ export const SettingsView = ({
   onAddVehicle: () => void
   onEditVehicle: (id: string) => void
   onDeleteVehicle: (id: string) => void
+  onAddStation: () => void
+  onEditStation: (id: string) => void
+  onDeleteStation: (id: string) => void
 }) => {
   const L = settings.language
   const [showExport, setShowExport] = useState(false)
@@ -94,6 +171,52 @@ export const SettingsView = ({
         )}
         <Button onClick={onAddVehicle} className="min-h-[44px]">
           {t(L, 'addVehicle')}
+        </Button>
+      </div>
+
+      <CatalogEditor
+        title={t(L, 'fuelType')}
+        items={settings.fuelGrades}
+        onChange={(fuelGrades) => onChange({ ...settings, fuelGrades })}
+        lang={L}
+      />
+
+      <CatalogEditor
+        title={t(L, 'connectors')}
+        items={settings.connectors}
+        onChange={(connectors) => onChange({ ...settings, connectors })}
+        lang={L}
+      />
+
+      <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+        <h2 className="text-sm font-semibold text-slate-700">{t(L, 'manageStations')}</h2>
+        {(db.stations ?? []).length === 0 ? (
+          <div className="text-sm text-slate-500">{t(L, 'noStations')}</div>
+        ) : (
+          (db.stations ?? []).map((s) => (
+            <div key={s.id} className="flex items-center justify-between gap-2">
+              <button
+                onClick={() => onEditStation(s.id)}
+                className="flex-1 flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-left hover:bg-slate-50 min-h-[44px]"
+              >
+                <StateDot state={s.state} />
+                <span className="font-medium truncate">{s.name}</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (window.confirm(t(L, 'confirmDelete'))) {
+                    onDeleteStation(s.id)
+                  }
+                }}
+                className="rounded-xl border border-red-300 text-red-600 px-3 py-2 text-sm min-h-[44px]"
+              >
+                {t(L, 'delete')}
+              </button>
+            </div>
+          ))
+        )}
+        <Button onClick={onAddStation} className="min-h-[44px]">
+          {t(L, 'addStation')}
         </Button>
       </div>
 

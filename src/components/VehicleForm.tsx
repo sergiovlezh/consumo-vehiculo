@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { t } from '../i18n'
 import { uid } from '../storage'
+import { visibleOrSelected } from '../domain'
 import type { Settings, Vehicle, VehicleType } from '../types'
-import { Button, Field, Segmented } from './ui'
+import { Button, ChipSelect, Field, Segmented } from './ui'
 
 export const VehicleForm = ({
   initial,
@@ -35,6 +36,8 @@ export const VehicleForm = ({
   const [batteryDegradation, setBatteryDegradation] = useState(
     initial?.batteryDegradation != null ? String(initial.batteryDegradation) : '100',
   )
+  const [fuelGradeId, setFuelGradeId] = useState(initial?.fuelGradeId ?? '')
+  const [connectorIds, setConnectorIds] = useState<string[]>(initial?.connectorIds ?? [])
 
   const submit = () => {
     if (!name.trim()) return
@@ -51,6 +54,8 @@ export const VehicleForm = ({
       licensePlate: licensePlate.trim() || undefined,
       capacity: isFinite(capN) && capN > 0 ? capN : 0,
       batteryDegradation: isElectric && isFinite(degN) && degN > 0 && degN <= 100 ? degN : undefined,
+      fuelGradeId: !isElectric && fuelGradeId ? fuelGradeId : undefined,
+      connectorIds: isElectric && connectorIds.length ? connectorIds : undefined,
       recharges: initial?.recharges ?? [],
     })
   }
@@ -141,6 +146,33 @@ export const VehicleForm = ({
             min="1"
           />
           <p className="mt-1 text-xs text-slate-500">{t(L, 'batteryDegradationHelp')}</p>
+        </Field>
+      ) : (
+        <Field label={t(L, 'fuelType')}>
+          <select
+            value={fuelGradeId}
+            onChange={(e) => setFuelGradeId(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 min-h-[44px] outline-none focus:border-blue-500"
+          >
+            <option value="">—</option>
+            {visibleOrSelected(settings.fuelGrades, fuelGradeId ? [fuelGradeId] : []).map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
+      {isElectric ? (
+        <Field label={t(L, 'connectors')}>
+          <ChipSelect
+            options={visibleOrSelected(settings.connectors, connectorIds).map((c) => ({
+              value: c.id,
+              label: c.label,
+            }))}
+            selected={connectorIds}
+            onChange={setConnectorIds}
+          />
         </Field>
       ) : null}
       <div className="flex items-center gap-2">

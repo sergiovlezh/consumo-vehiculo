@@ -1,6 +1,6 @@
 // ponytail: the one runnable check for the consumption math. Run with `npm run check`.
-import { computeIntervals, effectiveCapacity, kmPerPercent, kwhForLevels, levelsForKwh, stats } from './domain'
-import type { Settings, Vehicle } from './types'
+import { computeIntervals, catalogLabel, effectiveCapacity, kmPerPercent, kwhForLevels, levelsForKwh, seedConnectors, seedFuelGrades, stationsForVehicle, stats, visibleOrSelected } from './domain'
+import type { Settings, Station, Vehicle } from './types'
 
 // ponytail: local assert keeps node types out of the app tsconfig.
 const assert = {
@@ -18,6 +18,8 @@ const settings = (volumeUnit: Settings['volumeUnit'] = 'L'): Settings => {
     distanceUnit: 'km',
     volumeUnit,
     energyUnit: 'kWh',
+    fuelGrades: seedFuelGrades('en'),
+    connectors: seedConnectors(),
   }
 }
 
@@ -97,6 +99,43 @@ const ev = (recharges: Vehicle['recharges'], capacity = 60): Vehicle => {
   ])
   assert.equal(stats(single, settings()).avg, null)
   assert.equal(kmPerPercent(single, settings()), null)
+}
+
+// 6. Catalog seeds are stable and language-aware.
+{
+  const es = seedFuelGrades('es')
+  assert.equal(es.length, 3)
+  assert.equal(es[0].id, 'regular')
+  assert.equal(es[0].label, 'Corriente')
+  assert.equal(es[2].label, 'Extra')
+  const en = seedFuelGrades('en')
+  assert.equal(en[0].label, 'Regular')
+  assert.equal(en[0].id, es[0].id) // ids survive language switches
+  assert.equal(seedConnectors().length, 7)
+}
+
+// 7. Hidden catalog items resolve; deleted ones yield null; pickers keep selected-hidden.
+{
+  const items = [...seedFuelGrades('en'), { id: 'x', label: 'X', hidden: true }]
+  assert.equal(catalogLabel(items, 'x'), 'X')
+  assert.equal(catalogLabel(items, 'gone'), null)
+  assert.equal(catalogLabel(items, ''), null)
+  const opts = visibleOrSelected(items, ['x'])
+  assert.equal(opts.some((i) => i.id === 'x'), true)
+  assert.equal(visibleOrSelected(items, []).some((i) => i.id === 'x'), false)
+}
+
+// 8. Station picker filters by vehicle kind.
+{
+  const stations: Station[] = [
+    { id: 'e', name: 'E', kind: 'electric', state: 'open' },
+    { id: 'f', name: 'F', kind: 'fuel', state: 'open' },
+    { id: 'b', name: 'B', kind: 'both', state: 'open' },
+  ]
+  assert.equal(stationsForVehicle(stations, 'electric').length, 2)
+  assert.equal(stationsForVehicle(stations, 'fuel').length, 2)
+  assert.equal(stationsForVehicle(stations, 'hybrid').length, 2)
+  assert.equal(stationsForVehicle(stations, 'electric').some((s) => s.id === 'f'), false)
 }
 
 console.log('domain.selfcheck: ok')

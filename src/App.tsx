@@ -3,10 +3,11 @@ import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router'
 import type { NavigateFunction } from 'react-router'
 import { t } from './i18n'
 import { loadDB, loadSettings, saveDB, saveSettings } from './storage'
-import type { DB, Recharge, Settings, Vehicle } from './types'
+import type { DB, Recharge, Settings, Station, Vehicle } from './types'
 import { FabMenu, Header } from './components/ui'
 import { VehicleList } from './components/VehicleList'
 import { VehicleForm } from './components/VehicleForm'
+import { StationForm } from './components/StationForm'
 import { VehicleDetail } from './components/VehicleDetail'
 import { ChargeCalculator } from './components/ChargeCalculator'
 import { RechargeForm } from './components/RechargeForm'
@@ -47,6 +48,23 @@ const App = () => {
       vehicles: prev.vehicles.filter((v) => v.id !== id),
       favoriteVehicleId: prev.favoriteVehicleId === id ? null : prev.favoriteVehicleId,
     }))
+  }
+
+  const upsertStation = (s: Station) => {
+    setDb((prev) => {
+      const stations = prev.stations ?? []
+      const i = stations.findIndex((x) => x.id === s.id)
+      const next = [...stations]
+      if (i >= 0) next[i] = s
+      else next.push(s)
+      return { ...prev, stations: next }
+    })
+    navigate('/settings')
+  }
+
+  const deleteStation = (id: string) => {
+    if (!window.confirm(t(L, 'confirmDelete'))) return
+    setDb((prev) => ({ ...prev, stations: (prev.stations ?? []).filter((s) => s.id !== id) }))
   }
 
   const setFavorite = (id: string) => {
@@ -181,16 +199,27 @@ const App = () => {
                 onChange={setSettings}
                 db={db}
                 onImport={(parsed, parsedSettings) => {
-                  setDb({ vehicles: parsed.vehicles, favoriteVehicleId: parsed.favoriteVehicleId ?? null })
+                  setDb({ vehicles: parsed.vehicles, favoriteVehicleId: parsed.favoriteVehicleId ?? null, stations: parsed.stations ?? [] })
                   if (parsedSettings) setSettings(parsedSettings)
                   navigate('/')
                 }}
                 onAddVehicle={() => navigate('/vehicles/new')}
                 onEditVehicle={(id) => navigate(`/vehicles/${id}/edit`)}
                 onDeleteVehicle={deleteVehicle}
+                onAddStation={() => navigate('/stations/new')}
+                onEditStation={(id) => navigate(`/stations/${id}/edit`)}
+                onDeleteStation={deleteStation}
               />
             </>
           }
+        />
+        <Route
+          path="/stations/new"
+          element={<StationFormRoute db={db} settings={settings} onSave={upsertStation} />}
+        />
+        <Route
+          path="/stations/:id/edit"
+          element={<StationFormRoute db={db} settings={settings} edit onSave={upsertStation} />}
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -199,6 +228,31 @@ const App = () => {
 }
 
 // ponytail: thin route adapters, logic stays in App
+const StationFormRoute = ({
+  db,
+  settings,
+  edit,
+  onSave,
+}: {
+  db: DB
+  settings: Settings
+  edit?: boolean
+  onSave: (s: Station) => void
+}) => {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const L = settings.language
+  const station = edit ? (db.stations ?? []).find((x) => x.id === id) ?? null : null
+  if (edit && !station) return <Navigate to="/settings" replace />
+  const back = () => goBack(navigate, '/settings')
+  return (
+    <>
+      <Header title={station ? t(L, 'editStation') : t(L, 'addStation')} onBack={back} />
+      <StationForm initial={station} settings={settings} onCancel={back} onSave={onSave} />
+    </>
+  )
+}
+
 const VehicleFormRoute = ({
   db,
   settings,
@@ -253,6 +307,7 @@ const DetailRoute = ({
     <VehicleDetail
       vehicle={v}
       settings={settings}
+      stations={db.stations ?? []}
       onBack={() => navigate('/')}
       onAddRecharge={() => navigate(`/vehicles/${v.id}/recharges/new`)}
       onEditVehicle={() => navigate(`/vehicles/${v.id}/edit`)}
@@ -286,6 +341,7 @@ const RechargeFormRoute = ({
       vehicle={v}
       vehicles={db.vehicles}
       settings={settings}
+      stations={db.stations ?? []}
       vehicleId={v.id}
       onVehicleChange={() => {}}
       onCancel={() => navigate(`/vehicles/${v.id}`)}
@@ -317,6 +373,7 @@ const QuickRechargeRoute = ({
         vehicle={vehicle}
         vehicles={db.vehicles}
         settings={settings}
+        stations={db.stations ?? []}
         vehicleId={vehicleId}
         onVehicleChange={setVehicleId}
         onCancel={() => navigate('/')}

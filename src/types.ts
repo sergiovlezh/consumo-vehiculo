@@ -1,5 +1,24 @@
 export type Lang = 'en' | 'es'
 export type VehicleType = 'fuel' | 'electric' | 'hybrid'
+export type StationKind = 'electric' | 'fuel' | 'both'
+export type StationState = 'open' | 'maintenance' | 'closed' | 'unknown'
+
+// User-managed catalog entry (fuel grades, connectors). Stable ids survive
+// renames; hidden items leave pickers but still resolve by id.
+export interface CatalogItem {
+  id: string
+  label: string
+  hidden?: boolean
+}
+
+export interface Station {
+  id: string
+  name: string
+  kind: StationKind
+  state: StationState
+  connectorIds?: string[]
+  fuelGradeIds?: string[]
+}
 
 export interface Recharge {
   id: string
@@ -10,6 +29,10 @@ export interface Recharge {
   endLevel: number
   fullCharge: boolean
   notes?: string
+  place?: string
+  stationId?: string
+  // Display-only (non-electric). Never enters stats.
+  fuelGradeId?: string
   // Display-only (electric): level when the charge started. Never enters stats.
   startLevel?: number
 }
@@ -28,12 +51,17 @@ export interface Vehicle {
   year?: number
   color?: string
   licensePlate?: string
+  // Default fuel grade for new records (fuel/hybrid). Display-only.
+  fuelGradeId?: string
+  // Supported connectors (electric). Display-only for now.
+  connectorIds?: string[]
   recharges: Recharge[]
 }
 
 export interface DB {
   vehicles: Vehicle[]
   favoriteVehicleId: string | null
+  stations: Station[]
 }
 
 export interface Settings {
@@ -42,4 +70,6 @@ export interface Settings {
   distanceUnit: 'km'
   volumeUnit: 'L' | 'gal'
   energyUnit: 'kWh'
+  fuelGrades: CatalogItem[]
+  connectors: CatalogItem[]
 }

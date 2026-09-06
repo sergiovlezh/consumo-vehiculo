@@ -1,22 +1,25 @@
+import { seedConnectors, seedFuelGrades } from './domain'
 import type { DB, Settings } from './types'
 
 const DB_KEY = 'vc.db.v1'
 const SETTINGS_KEY = 'vc.settings.v1'
 
 export const loadDB = (): DB => {
+  const empty: DB = { vehicles: [], favoriteVehicleId: null, stations: [] }
   try {
     const raw = localStorage.getItem(DB_KEY)
-    if (!raw) return { vehicles: [], favoriteVehicleId: null }
+    if (!raw) return empty
     const parsed = JSON.parse(raw) as Partial<DB>
     if (!parsed || !Array.isArray(parsed.vehicles)) {
-      return { vehicles: [], favoriteVehicleId: null }
+      return empty
     }
     return {
       vehicles: parsed.vehicles,
       favoriteVehicleId: parsed.favoriteVehicleId ?? null,
+      stations: parsed.stations ?? [],
     }
   } catch {
-    return { vehicles: [], favoriteVehicleId: null }
+    return empty
   }
 }
 
@@ -49,15 +52,23 @@ const DEFAULT_SETTINGS: Settings = {
   distanceUnit: 'km',
   volumeUnit: 'L',
   energyUnit: 'kWh',
+  fuelGrades: [],
+  connectors: [],
 }
+
+const withCatalogs = (s: Settings): Settings => ({
+  ...s,
+  fuelGrades: s.fuelGrades?.length ? s.fuelGrades : seedFuelGrades(s.language),
+  connectors: s.connectors?.length ? s.connectors : seedConnectors(),
+})
 
 export const loadSettings = (): Settings => {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
-    if (!raw) return { ...DEFAULT_SETTINGS }
-    return { ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<Settings>) }
+    if (!raw) return withCatalogs({ ...DEFAULT_SETTINGS })
+    return withCatalogs({ ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<Settings>) })
   } catch {
-    return { ...DEFAULT_SETTINGS }
+    return withCatalogs({ ...DEFAULT_SETTINGS })
   }
 }
 
@@ -80,9 +91,10 @@ export const importAll = (json: string): { db: DB; settings: Settings } | null =
   try {
     const parsed = JSON.parse(json)
     if (!parsed || typeof parsed !== 'object') return null
+    const db = parsed.db ?? { vehicles: [], favoriteVehicleId: null, stations: [] }
     return {
-      db: parsed.db ?? { vehicles: [], favoriteVehicleId: null },
-      settings: parsed.settings ?? DEFAULT_SETTINGS,
+      db: { ...db, stations: db.stations ?? [] },
+      settings: withCatalogs({ ...DEFAULT_SETTINGS, ...(parsed.settings ?? {}) }),
     }
   } catch {
     return null
