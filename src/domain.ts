@@ -91,6 +91,17 @@ const CONNECTOR_SEED: [string, string][] = [
 export const seedConnectors = (): CatalogItem[] =>
   CONNECTOR_SEED.map(([id, label]) => ({ id, label }))
 
+export const seedExpenseKinds = (lang: Lang): CatalogItem[] => {
+  const labels =
+    lang === 'es'
+      ? ['General', 'Mantenimiento', 'Reparación', 'Revisión programada', 'Mejora', 'Accesorio']
+      : ['General', 'Maintenance', 'Repair', 'Scheduled service', 'Improvement', 'Accessory']
+  return ['general', 'maintenance', 'repair', 'service', 'improvement', 'accessory'].map((id, i) => ({
+    id,
+    label: labels[i],
+  }))
+}
+
 // Resolve a catalog id to its label. Hidden items still resolve; deleted ones
 // yield null (UI renders '—').
 export const catalogLabel = (items: CatalogItem[], id: string | null | undefined): string | null => {

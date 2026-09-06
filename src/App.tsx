@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router'
+import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router'
 import type { NavigateFunction } from 'react-router'
 import { t } from './i18n'
 import { loadDB, loadSettings, saveDB, saveSettings } from './storage'
-import type { DB, Recharge, Settings, Station, Vehicle } from './types'
+import type { DB, Recharge, Settings, Station, Vehicle, VehicleEntry } from './types'
 import { FabMenu, Header } from './components/ui'
 import { VehicleList } from './components/VehicleList'
 import { VehicleForm } from './components/VehicleForm'
 import { StationForm } from './components/StationForm'
+import { EntryForm } from './components/EntryForm'
 import { VehicleDetail } from './components/VehicleDetail'
 import { ChargeCalculator } from './components/ChargeCalculator'
 import { RechargeForm } from './components/RechargeForm'
@@ -99,6 +100,46 @@ const App = () => {
     }))
   }
 
+  const saveEntry = (vehicleId: string, entry: VehicleEntry, isEdit: boolean) => {
+    setDb((prev) => ({
+      ...prev,
+      vehicles: prev.vehicles.map((v) =>
+        v.id === vehicleId
+          ? {
+              ...v,
+              entries: isEdit
+                ? (v.entries ?? []).map((e) => (e.id === entry.id ? entry : e))
+                : [...(v.entries ?? []), entry],
+            }
+          : v,
+      ),
+    }))
+    navigate(`/vehicles/${vehicleId}`)
+  }
+
+  const deleteEntry = (vehicleId: string, entryId: string) => {
+    if (!window.confirm(t(L, 'confirmDelete'))) return
+    setDb((prev) => ({
+      ...prev,
+      vehicles: prev.vehicles.map((v) =>
+        v.id === vehicleId
+          ? { ...v, entries: (v.entries ?? []).filter((e) => e.id !== entryId) }
+          : v,
+      ),
+    }))
+  }
+
+  const togglePin = (vehicleId: string, entryId: string) => {
+    setDb((prev) => ({
+      ...prev,
+      vehicles: prev.vehicles.map((v) =>
+        v.id === vehicleId
+          ? { ...v, entries: (v.entries ?? []).map((e) => (e.id === entryId ? { ...e, pinned: !e.pinned } : e)) }
+          : v,
+      ),
+    }))
+  }
+
   return (
     <div className="mx-auto min-h-screen max-w-3xl">
       <Routes>
@@ -132,7 +173,7 @@ const App = () => {
                 favoriteId={db.favoriteVehicleId}
               />
               {db.vehicles.length > 0 ? (
-                <FabMenu onAddRecord={() => navigate('/recharges/new')} />
+                <FabMenu onAddRecord={() => navigate('/recharges/new')} lang={L} />
               ) : null}
             </>
           }
@@ -156,6 +197,8 @@ const App = () => {
               settings={settings}
               onToggleFavorite={setFavorite}
               onDeleteRecharge={deleteRecharge}
+              onDeleteEntry={deleteEntry}
+              onTogglePin={togglePin}
             />
           }
         />
@@ -181,6 +224,18 @@ const App = () => {
           path="/vehicles/:id/recharges/:recId/edit"
           element={
             <RechargeFormRoute db={db} settings={settings} edit onSave={saveRecharge} />
+          }
+        />
+        <Route
+          path="/vehicles/:id/entries/new"
+          element={
+            <EntryFormRoute db={db} settings={settings} onSave={saveEntry} />
+          }
+        />
+        <Route
+          path="/vehicles/:id/entries/:entryId/edit"
+          element={
+            <EntryFormRoute db={db} settings={settings} edit onSave={saveEntry} />
           }
         />
         <Route
@@ -293,11 +348,15 @@ const DetailRoute = ({
   settings,
   onToggleFavorite,
   onDeleteRecharge,
+  onDeleteEntry,
+  onTogglePin,
 }: {
   db: DB
   settings: Settings
   onToggleFavorite: (id: string) => void
   onDeleteRecharge: (vehicleId: string, recId: string) => void
+  onDeleteEntry: (vehicleId: string, entryId: string) => void
+  onTogglePin: (vehicleId: string, entryId: string) => void
 }) => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -310,11 +369,16 @@ const DetailRoute = ({
       stations={db.stations ?? []}
       onBack={() => navigate('/')}
       onAddRecharge={() => navigate(`/vehicles/${v.id}/recharges/new`)}
+      onAddNote={() => navigate(`/vehicles/${v.id}/entries/new?kind=note`)}
+      onAddExpense={() => navigate(`/vehicles/${v.id}/entries/new?kind=expense`)}
       onEditVehicle={() => navigate(`/vehicles/${v.id}/edit`)}
       onToggleFavorite={() => onToggleFavorite(v.id)}
       isFavorite={db.favoriteVehicleId === v.id}
       onEditRecharge={(rec) => navigate(`/vehicles/${v.id}/recharges/${rec.id}/edit`)}
       onDeleteRecharge={(rec) => onDeleteRecharge(v.id, rec.id)}
+      onEditEntry={(e) => navigate(`/vehicles/${v.id}/entries/${e.id}/edit`)}
+      onDeleteEntry={(e) => onDeleteEntry(v.id, e.id)}
+      onTogglePin={(e) => onTogglePin(v.id, e.id)}
     />
   )
 }
@@ -349,6 +413,42 @@ const RechargeFormRoute = ({
       showHeader
       initial={initial}
     />
+  )
+}
+
+const EntryFormRoute = ({
+  db,
+  settings,
+  edit,
+  onSave,
+}: {
+  db: DB
+  settings: Settings
+  edit?: boolean
+  onSave: (vehicleId: string, e: VehicleEntry, isEdit: boolean) => void
+}) => {
+  const { id, entryId } = useParams()
+  const [search] = useSearchParams()
+  const navigate = useNavigate()
+  const L = settings.language
+  const v = db.vehicles.find((x) => x.id === id)
+  if (!v) return <Navigate to="/" replace />
+  const initial = edit ? (v.entries ?? []).find((e) => e.id === entryId) ?? null : null
+  if (edit && !initial) return <Navigate to={`/vehicles/${id}`} replace />
+  const kind = initial?.kind ?? (search.get('kind') === 'expense' ? 'expense' : 'note')
+  const back = () => goBack(navigate, `/vehicles/${v.id}`)
+  const title = t(L, edit ? (kind === 'expense' ? 'editExpense' : 'editNote') : kind === 'expense' ? 'addExpense' : 'addNote')
+  return (
+    <>
+      <Header title={title} onBack={back} />
+      <EntryForm
+        initial={initial}
+        kind={kind}
+        settings={settings}
+        onCancel={back}
+        onSave={(e) => onSave(v.id, e, !!initial)}
+      />
+    </>
   )
 }
 

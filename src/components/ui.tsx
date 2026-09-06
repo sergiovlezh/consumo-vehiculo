@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { fmtNum, fmtMoney, type Stats } from '../domain'
 import { t } from '../i18n'
-import type { Settings, StationState } from '../types'
+import type { Lang, Settings, StationState } from '../types'
 
 const STATE_DOT: Record<StationState, string> = {
   open: 'bg-green-500',
@@ -126,19 +126,36 @@ export const Fab = ({ onClick, label = '+', children }: { onClick: () => void; l
   </button>
 )
 
-export const FabMenu = ({ onAddRecord }: { onAddRecord: () => void }) => {
+export const FabMenu = ({
+  onAddRecord,
+  onAddNote,
+  onAddExpense,
+  lang,
+}: {
+  onAddRecord: () => void
+  onAddNote?: () => void
+  onAddExpense?: () => void
+  lang: Lang
+}) => {
   const [open, setOpen] = useState(false)
+  const item = (onClick: () => void, icon: string, iconCls: string, label: string) => (
+    <button
+      onClick={() => { onClick(); setOpen(false); }}
+      className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 shadow-lg text-left min-w-[160px] hover:bg-slate-50"
+    >
+      <span className={`w-8 h-8 rounded-full flex items-center justify-center ${iconCls}`}>{icon}</span>
+      <span className="font-medium">{label}</span>
+    </button>
+  )
   return (
     <div className="fixed bottom-6 right-6 z-20">
       <div className="flex flex-col items-end gap-2">
         {open && (
-          <button
-            onClick={() => { onAddRecord(); setOpen(false); }}
-            className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 shadow-lg text-left min-w-[160px] hover:bg-slate-50"
-          >
-            <span className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">⚡</span>
-            <span className="font-medium">Add recharge</span>
-          </button>
+          <>
+            {item(onAddRecord, '⚡', 'bg-blue-100 text-blue-600', t(lang, 'addRecharge'))}
+            {onAddNote ? item(onAddNote, '📝', 'bg-amber-100 text-amber-600', t(lang, 'addNote')) : null}
+            {onAddExpense ? item(onAddExpense, '🧾', 'bg-green-100 text-green-600', t(lang, 'addExpense')) : null}
+          </>
         )}
         <button
           onClick={() => setOpen(!open)}

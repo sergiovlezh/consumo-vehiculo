@@ -188,6 +188,13 @@ export const SettingsView = ({
         lang={L}
       />
 
+      <CatalogEditor
+        title={t(L, 'expenseKinds')}
+        items={settings.expenseKinds}
+        onChange={(expenseKinds) => onChange({ ...settings, expenseKinds })}
+        lang={L}
+      />
+
       <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-slate-700">{t(L, 'manageStations')}</h2>
         {(db.stations ?? []).length === 0 ? (

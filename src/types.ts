@@ -2,6 +2,20 @@ export type Lang = 'en' | 'es'
 export type VehicleType = 'fuel' | 'electric' | 'hybrid'
 export type StationKind = 'electric' | 'fuel' | 'both'
 export type StationState = 'open' | 'maintenance' | 'closed' | 'unknown'
+export type EntryKind = 'note' | 'expense'
+
+// Journal note or expense record. Optional odo; pinned items render on top.
+// ponytail: entries never feed consumption intervals — only recharges do.
+export interface VehicleEntry {
+  id: string
+  date: string
+  odo?: number | null
+  kind: EntryKind
+  text: string
+  pinned?: boolean
+  amount?: number
+  expenseKindId?: string
+}
 
 // User-managed catalog entry (fuel grades, connectors). Stable ids survive
 // renames; hidden items leave pickers but still resolve by id.
@@ -56,6 +70,7 @@ export interface Vehicle {
   // Supported connectors (electric). Display-only for now.
   connectorIds?: string[]
   recharges: Recharge[]
+  entries?: VehicleEntry[]
 }
 
 export interface DB {
@@ -72,4 +87,5 @@ export interface Settings {
   energyUnit: 'kWh'
   fuelGrades: CatalogItem[]
   connectors: CatalogItem[]
+  expenseKinds: CatalogItem[]
 }

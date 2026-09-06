@@ -1,4 +1,4 @@
-import { seedConnectors, seedFuelGrades } from './domain'
+import { seedConnectors, seedExpenseKinds, seedFuelGrades } from './domain'
 import type { DB, Settings } from './types'
 
 const DB_KEY = 'vc.db.v1'
@@ -54,12 +54,14 @@ const DEFAULT_SETTINGS: Settings = {
   energyUnit: 'kWh',
   fuelGrades: [],
   connectors: [],
+  expenseKinds: [],
 }
 
 const withCatalogs = (s: Settings): Settings => ({
   ...s,
   fuelGrades: s.fuelGrades?.length ? s.fuelGrades : seedFuelGrades(s.language),
   connectors: s.connectors?.length ? s.connectors : seedConnectors(),
+  expenseKinds: s.expenseKinds?.length ? s.expenseKinds : seedExpenseKinds(s.language),
 })
 
 export const loadSettings = (): Settings => {

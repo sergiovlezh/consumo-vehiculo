@@ -1,5 +1,5 @@
 // ponytail: the one runnable check for the consumption math. Run with `npm run check`.
-import { computeIntervals, catalogLabel, effectiveCapacity, kmPerPercent, kwhForLevels, levelsForKwh, seedConnectors, seedFuelGrades, stationsForVehicle, stats, visibleOrSelected } from './domain'
+import { computeIntervals, catalogLabel, effectiveCapacity, kmPerPercent, kwhForLevels, levelsForKwh, seedConnectors, seedExpenseKinds, seedFuelGrades, stationsForVehicle, stats, visibleOrSelected } from './domain'
 import type { Settings, Station, Vehicle } from './types'
 
 // ponytail: local assert keeps node types out of the app tsconfig.
@@ -20,6 +20,7 @@ const settings = (volumeUnit: Settings['volumeUnit'] = 'L'): Settings => {
     energyUnit: 'kWh',
     fuelGrades: seedFuelGrades('en'),
     connectors: seedConnectors(),
+    expenseKinds: seedExpenseKinds('en'),
   }
 }
 
@@ -136,6 +137,22 @@ const ev = (recharges: Vehicle['recharges'], capacity = 60): Vehicle => {
   assert.equal(stationsForVehicle(stations, 'fuel').length, 2)
   assert.equal(stationsForVehicle(stations, 'hybrid').length, 2)
   assert.equal(stationsForVehicle(stations, 'electric').some((s) => s.id === 'f'), false)
+}
+
+// 9. Journal/expense entries (even with odo) never enter consumption or fuel totals.
+{
+  const v = ev([
+    { id: 'a', date: '2026-01-01', odo: 100, amount: 15, pricePerUnit: 0.2, endLevel: 80, fullCharge: false },
+    { id: 'b', date: '2026-01-05', odo: 300, amount: 20, pricePerUnit: 0.2, endLevel: 80, fullCharge: false },
+  ])
+  v.entries = [
+    { id: 'n', date: '2026-01-03', odo: 200, kind: 'note', text: 'windscreen liquid' },
+    { id: 'p', date: '2026-01-02', kind: 'note', text: 'insurance phone', pinned: true },
+    { id: 'x', date: '2026-01-04', odo: 250, kind: 'expense', text: 'brakes', amount: 300, expenseKindId: 'repair' },
+  ]
+  assert.equal(computeIntervals(v).length, 1)
+  assert.equal(stats(v, settings()).avg, 10)
+  assert.equal(stats(v, settings()).totalSpent, 7)
 }
 
 console.log('domain.selfcheck: ok')
