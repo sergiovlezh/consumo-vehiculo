@@ -8,6 +8,7 @@ import { FabMenu, Header } from './components/ui'
 import { VehicleList } from './components/VehicleList'
 import { VehicleForm } from './components/VehicleForm'
 import { VehicleDetail } from './components/VehicleDetail'
+import { ChargeCalculator } from './components/ChargeCalculator'
 import { RechargeForm } from './components/RechargeForm'
 import { SettingsView } from './components/SettingsView'
 
@@ -106,6 +107,11 @@ const App = () => {
                 onOpen={(id) => navigate(`/vehicles/${id}`)}
                 onToggleFavorite={setFavorite}
                 onAddVehicle={() => navigate('/vehicles/new')}
+              />
+              <ChargeCalculator
+                vehicles={db.vehicles}
+                settings={settings}
+                favoriteId={db.favoriteVehicleId}
               />
               {db.vehicles.length > 0 ? (
                 <FabMenu onAddRecord={() => navigate('/recharges/new')} />

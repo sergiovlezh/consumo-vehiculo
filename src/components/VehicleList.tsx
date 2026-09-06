@@ -1,6 +1,6 @@
 import { t } from '../i18n'
 import type { Settings, Vehicle } from '../types'
-import { stats, fmtNum, fmtMoney } from '../domain'
+import { stats, fmtNum, fmtMoney, kmPerPercent } from '../domain'
 import { Button, Stat } from './ui'
 
 const VehicleCard = ({
@@ -51,13 +51,14 @@ const VehicleCard = ({
           </button>
         )}
       </div>
-      <button onClick={onOpen} className="mt-3 grid w-full grid-cols-3 gap-2 text-left">
+      <button onClick={onOpen} className="mt-3 grid w-full grid-cols-2 gap-2 text-left">
         <Stat label={t(L, 'avgCons')} value={fmtNum(s.avg)} sub={s.consUnit} />
         <Stat
           label={t(L, 'avgCost')}
           value={fmtMoney(s.avgCost, settings.currency)}
           sub={`${settings.currency}/km`}
         />
+        <Stat label={t(L, 'kmPerPct')} value={fmtNum(kmPerPercent(vehicle, settings))} sub="km" />
         <Stat
           label={t(L, 'lastOdo')}
           value={s.lastOdo != null ? `${s.lastOdo.toLocaleString()} km` : '—'}

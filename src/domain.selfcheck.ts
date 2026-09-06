@@ -1,5 +1,5 @@
 // ponytail: the one runnable check for the consumption math. Run with `npm run check`.
-import { computeIntervals, effectiveCapacity, kwhForLevels, levelsForKwh, stats } from './domain'
+import { computeIntervals, effectiveCapacity, kmPerPercent, kwhForLevels, levelsForKwh, stats } from './domain'
 import type { Settings, Vehicle } from './types'
 
 // ponytail: local assert keeps node types out of the app tsconfig.
@@ -41,6 +41,7 @@ const ev = (recharges: Vehicle['recharges'], capacity = 60): Vehicle => {
   assert.equal(iv.distance, 200)
   assert.equal(iv.consumed, 20)
   assert.equal(stats(v, settings()).avg, 10)
+  assert.equal(kmPerPercent(v, settings()), 6)
 }
 
 // 2. Legacy manual-correction fields are ignored, not honored.
@@ -95,6 +96,7 @@ const ev = (recharges: Vehicle['recharges'], capacity = 60): Vehicle => {
     { id: 'a', date: '2026-01-01', odo: 100, amount: 15, pricePerUnit: 0.2, endLevel: 80, fullCharge: false },
   ])
   assert.equal(stats(single, settings()).avg, null)
+  assert.equal(kmPerPercent(single, settings()), null)
 }
 
 console.log('domain.selfcheck: ok')

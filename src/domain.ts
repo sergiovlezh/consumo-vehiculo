@@ -60,6 +60,16 @@ export const levelsForKwh = (v: Vehicle, kwh: number): number | null => {
   return (kwh / cap) * 100
 }
 
+// km per 1% from the historical average. Null without capacity or history.
+// ponytail: (cap/100)/(avg/100) — the /100s cancel, so cap/avg.
+export const kmPerPercent = (v: Vehicle, settings: Settings): number | null => {
+  const cap = effectiveCapacity(v)
+  if (cap == null) return null
+  const { avg } = stats(v, settings)
+  if (avg == null || avg <= 0) return null
+  return cap / avg
+}
+
 export interface Stats {
   lastOdo: number | null
   count: number
