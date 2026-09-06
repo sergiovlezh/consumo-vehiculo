@@ -72,7 +72,8 @@ export const VehicleForm = ({
           options={[
             { value: 'fuel', label: t(L, 'fuel') },
             { value: 'electric', label: t(L, 'electric') },
-            { value: 'hybrid', label: t(L, 'hybrid') },
+            // ponytail: hybrid removed; PHEV/REEV per-tank split is a later feature.
+            // Stored legacy 'hybrid' vehicles keep working (treated as fuel).
           ]}
         />
       </Field>

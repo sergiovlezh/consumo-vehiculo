@@ -80,7 +80,7 @@ export const VehicleDetail = ({
                     {fmtNum(r.amount)} {isElectric ? settings.energyUnit : settings.volumeUnit}
                   </div>
                   <div className="text-xs text-slate-500">
-                    {r.endLevel != null ? `${r.endLevel}%` : ''}
+                    {r.startLevel != null ? `${r.startLevel}% → ` : ''}{r.endLevel != null ? `${r.endLevel}%` : ''}
                   </div>
                   {r.pricePerUnit > 0 && (
                     <div className="text-xs text-slate-500">

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { t } from '../i18n'
 import { uid } from '../storage'
-import { amountToFull, sortedRecharges } from '../domain'
+import { sortedRecharges } from '../domain'
 import type { Recharge, Settings, Vehicle } from '../types'
 import { Button, Field, Header } from './ui'
 
@@ -47,11 +47,7 @@ export const RechargeForm = ({
     ? String(initial.pricePerUnit * initial.amount)
     : '')
   const [notes, setNotes] = useState(initial?.notes ?? '')
-  const [showAdvanced, setShowAdvanced] = useState(false)
-  const [manualStart, setManualStart] = useState(initial?.manualStart ?? false)
-  const [startOdo, setStartOdo] = useState(initial?.startOdo != null ? String(initial.startOdo) : (last ? String(last.odo) : ''))
-  const [startLevel, setStartLevel] = useState(initial?.startLevel != null ? String(initial.startLevel) : (last && last.endLevel != null ? String(last.endLevel) : ''))
-  const [fullTankAmount, setFullTankAmount] = useState(initial?.fullTankAmount != null ? String(initial.fullTankAmount) : '')
+  const [startLevel, setStartLevel] = useState(initial?.startLevel != null ? String(initial.startLevel) : '')
   const [lastEdited, setLastEdited] = useState<LastEdited>(null)
 
   const amtUnit = isElectric ? settings.energyUnit : settings.volumeUnit
@@ -83,24 +79,20 @@ export const RechargeForm = ({
     return {}
   })()
 
-  const autoFilled = (() => {
-    if (!activeVehicle || !fullCharge) return null
-    const lvl = parseFloat(endLevel)
-    if (!isFinite(lvl)) return null
-    return amountToFull(activeVehicle, lvl)
-  })()
-
   const formValid = (() => {
     if (!activeVehicle) return false
     const odoN = parseFloat(odo)
     const endN = parseFloat(endLevel)
     if (!isFinite(odoN) || odoN < 0) return false
     if (!isFinite(endN) || endN < 0 || endN > 100) return false
+    if (startLevel !== '') {
+      const sN = parseFloat(startLevel)
+      if (!isFinite(sN) || sN < 0 || sN > 100) return false
+    }
     let amtN = parseFloat(amount)
     let unitN = parseFloat(pricePerUnit)
     let totN = parseFloat(totalPrice)
     const valid = (n: number) => isFinite(n)
-    if (autoFilled != null && !valid(amtN)) amtN = autoFilled
     if (valid(amtN) && valid(unitN) && !valid(totN)) totN = amtN * unitN
     else if (valid(amtN) && valid(totN) && !valid(unitN)) unitN = amtN > 0 ? totN / amtN : 0
     else if (valid(unitN) && valid(totN) && !valid(amtN)) amtN = unitN > 0 ? totN / unitN : 0
@@ -116,11 +108,11 @@ export const RechargeForm = ({
     let unitN = parseFloat(pricePerUnit)
     let totN = parseFloat(totalPrice)
     const valid = (n: number) => isFinite(n)
-    if (autoFilled != null && !valid(amtN)) amtN = autoFilled
     if (valid(amtN) && valid(unitN) && !valid(totN)) totN = amtN * unitN
     else if (valid(amtN) && valid(totN) && !valid(unitN)) unitN = amtN > 0 ? totN / amtN : 0
     else if (valid(unitN) && valid(totN) && !valid(amtN)) amtN = unitN > 0 ? totN / unitN : 0
 
+    const sN = parseFloat(startLevel)
     const payload: Recharge = {
       id: initial?.id ?? uid(),
       date,
@@ -130,16 +122,8 @@ export const RechargeForm = ({
       endLevel: endN,
       fullCharge,
       notes: notes || undefined,
-    }
-    if (manualStart) {
-      const sOdo = parseFloat(startOdo)
-      const sLvl = parseFloat(startLevel)
-      const fTank = parseFloat(fullTankAmount)
-      if (!isFinite(sOdo) || !isFinite(sLvl) || !isFinite(fTank)) return
-      payload.startOdo = sOdo
-      payload.startLevel = sLvl
-      payload.fullTankAmount = fTank
-      payload.manualStart = true
+      // ponytail: display-only, electric only; never enters stats
+      startLevel: isElectric && startLevel !== '' && isFinite(sN) ? sN : undefined,
     }
     onSave(activeVehicle.id, payload)
   }
@@ -206,11 +190,17 @@ export const RechargeForm = ({
               className="w-full rounded-xl border border-slate-300 px-3 py-2 min-h-[44px] disabled:bg-slate-100"
             />
           </Field>
-          {fullCharge && autoFilled != null && autoFilled > 0 ? (
-            <div className="rounded-lg bg-blue-50 p-2 text-xs text-blue-800">
-              {t(L, 'calcAmount')}: <strong>{autoFilled.toFixed(2)} {amtUnit}</strong>
-            </div>
-          ) : fullCharge && activeVehicle && activeVehicle.capacity > 0 ? null : null}
+          {isElectric ? (
+            <Field label={t(L, 'startLevel')}>
+              <input
+                inputMode="decimal"
+                value={startLevel}
+                onChange={(e) => setStartLevel(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 min-h-[44px]"
+                placeholder="20"
+              />
+            </Field>
+          ) : null}
           <Field label={amtLabel}>
             <input
               inputMode="decimal"
@@ -263,57 +253,6 @@ export const RechargeForm = ({
               className="w-full rounded-xl border border-slate-300 px-3 py-2 min-h-[44px]"
             />
           </Field>
-          <button
-            onClick={() => setShowAdvanced((s) => !s)}
-            className="text-sm text-blue-600 min-h-[44px] flex items-center"
-          >
-            {showAdvanced ? '▾ ' : '▸ '}
-            {t(L, 'advanced')}
-          </button>
-          {showAdvanced ? (
-            <div className="space-y-3 rounded-xl bg-slate-100 p-3">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="ms"
-                  checked={manualStart}
-                  onChange={(e) => setManualStart(e.target.checked)}
-                  className="h-5 w-5"
-                />
-                <label htmlFor="ms" className="text-sm">
-                  {t(L, 'manualStart')}
-                </label>
-              </div>
-              {manualStart ? (
-                <>
-                  <Field label={t(L, 'startOdometer')}>
-                    <input
-                      inputMode="decimal"
-                      value={startOdo}
-                      onChange={(e) => setStartOdo(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 min-h-[44px]"
-                    />
-                  </Field>
-                  <Field label={t(L, 'startLevel')}>
-                    <input
-                      inputMode="decimal"
-                      value={startLevel}
-                      onChange={(e) => setStartLevel(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 min-h-[44px]"
-                    />
-                  </Field>
-                  <Field label={`${t(L, 'amount')} (${t(L, 'fullTankAmount')})`}>
-                    <input
-                      inputMode="decimal"
-                      value={fullTankAmount}
-                      onChange={(e) => setFullTankAmount(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 min-h-[44px]"
-                    />
-                  </Field>
-                </>
-              ) : null}
-            </div>
-          ) : null}
         </>
       ) : null}
 

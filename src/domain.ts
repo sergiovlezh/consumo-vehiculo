@@ -1,4 +1,3 @@
-import { galToL } from './storage'
 import { t, type strings } from './i18n'
 import type { Lang, Recharge, Settings, Vehicle } from './types'
 
@@ -15,52 +14,50 @@ export interface Interval {
   cost: number
 }
 
-// Get effective capacity considering battery degradation for electric vehicles
-const getEffectiveCapacity = (v: Vehicle): number => {
-  if (v.type !== 'electric' || !v.batteryDegradation) return v.capacity
-  return v.capacity * (v.batteryDegradation / 100)
-}
-
-// Amount required to fill from `currentLevel` to 100% given effective capacity.
-// Returns null if capacity is missing.
-export const amountToFull = (v: Vehicle, currentLevel: number): number | null => {
-  const cap = getEffectiveCapacity(v)
-  if (!cap || cap <= 0) return null
-  if (currentLevel >= 100) return 0
-  if (currentLevel < 0) return cap
-  return (cap * (100 - currentLevel)) / 100
-}
-
 // Compute intervals between consecutive recharges.
-// ponytail: full->full (no manual correction) is underspecified by the data; we
-// fall back to `consumed = cur.amount` as a rough proxy. Manual correction with
-// a known full-tank capacity produces exact results.
+// ponytail: consumption is always the raw metered amount. Same-target charges
+// are exact under the same-level assumption; mixed targets are a rough proxy.
+// Battery levels are display-only and never enter the math. No capacity
+// inference, ever.
 export const computeIntervals = (v: Vehicle): Interval[] => {
   const recs = sortedRecharges(v)
   const out: Interval[] = []
   for (let i = 1; i < recs.length; i++) {
     const prev = recs[i - 1]
     const cur = recs[i]
-    const distance = cur.odo - prev.odo
-    let consumed: number = cur.amount
-    if (cur.manualStart && cur.fullTankAmount) {
-      const used = ((prev.endLevel ?? 0) - (cur.endLevel ?? 0)) / 100 * cur.fullTankAmount
-      consumed = Math.max(0, used)
-    } else if (prev.endLevel != null && cur.endLevel != null) {
-      const gap = 100 - cur.endLevel
-      if (gap > 0) {
-        consumed = (cur.amount * (prev.endLevel - cur.endLevel)) / gap
-      }
-    }
     out.push({
       from: prev,
       to: cur,
-      distance,
-      consumed: Math.max(0, consumed),
+      distance: cur.odo - prev.odo,
+      consumed: Math.max(0, cur.amount),
       cost: cur.amount * (cur.pricePerUnit || 0),
     })
   }
   return out
+}
+
+// Effective 100% capacity in the vehicle's own amount unit. Display and
+// estimator only — never used to fill a recharge amount.
+export const effectiveCapacity = (v: Vehicle): number | null => {
+  const cap =
+    v.type === 'electric' && v.batteryDegradation
+      ? v.capacity * (v.batteryDegradation / 100)
+      : v.capacity
+  return cap > 0 && isFinite(cap) ? cap : null
+}
+
+// Energy needed to go from fromPct to toPct, or null without usable capacity.
+export const kwhForLevels = (v: Vehicle, fromPct: number, toPct: number): number | null => {
+  const cap = effectiveCapacity(v)
+  if (cap == null || !isFinite(fromPct) || !isFinite(toPct)) return null
+  return (cap * (toPct - fromPct)) / 100
+}
+
+// Level gain for a given energy amount, or null without usable capacity.
+export const levelsForKwh = (v: Vehicle, kwh: number): number | null => {
+  const cap = effectiveCapacity(v)
+  if (cap == null || !isFinite(kwh)) return null
+  return (kwh / cap) * 100
 }
 
 export interface Stats {
@@ -99,15 +96,14 @@ export const stats = (v: Vehicle, settings: Settings): Stats => {
       consUnit: '',
     }
   }
-  const isElectric = v.type === 'electric'
-  const consUnit = isElectric
-    ? t(L, 'kwh_per_100km')
-    : settings.volumeUnit === 'gal'
-      ? t(L, 'gal_per_100km')
-      : t(L, 'l_per_100km')
-  const cons = intervals.map((i) =>
-    isElectric ? round2((i.consumed / i.distance) * 100) : round2((toStandardConsumed(i.to, settings) / i.distance) * 100),
-  )
+  const consUnit =
+    v.type === 'electric'
+      ? t(L, 'kwh_per_100km')
+      : settings.volumeUnit === 'gal'
+        ? t(L, 'gal_per_100km')
+        : t(L, 'l_per_100km')
+  // ponytail: amount is entered in the configured unit, so no conversion needed.
+  const cons = intervals.map((i) => round2((i.consumed / i.distance) * 100))
   const costPerKm = intervals.map((i) => round2(i.cost / i.distance))
   return {
     lastOdo,
@@ -121,11 +117,6 @@ export const stats = (v: Vehicle, settings: Settings): Stats => {
     totalSpent,
     consUnit,
   }
-}
-
-const toStandardConsumed = (rec: Recharge, settings: Settings): number => {
-  if (settings.volumeUnit === 'gal') return galToL(rec.amount)
-  return rec.amount
 }
 
 export const fmtNum = (n: number | null, d = 2): string =>

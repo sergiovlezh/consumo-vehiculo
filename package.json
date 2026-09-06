@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "check": "jiti src/domain.selfcheck.ts",
     "preview": "vite preview",
     "host": "vite --host"
   },

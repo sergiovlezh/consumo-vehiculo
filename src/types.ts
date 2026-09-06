@@ -10,11 +10,8 @@ export interface Recharge {
   endLevel: number
   fullCharge: boolean
   notes?: string
-  // Manual correction fields
-  manualStart?: boolean
-  startOdo?: number
+  // Display-only (electric): level when the charge started. Never enters stats.
   startLevel?: number
-  fullTankAmount?: number
 }
 
 export interface Vehicle {
