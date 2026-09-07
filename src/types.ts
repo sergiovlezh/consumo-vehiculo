@@ -12,7 +12,6 @@ export interface VehicleTask {
   title: string
   details?: string
   category: TaskCategory
-  startDate?: string
   dueDate?: string
   dueOdo?: number | null
   status: TaskStatus

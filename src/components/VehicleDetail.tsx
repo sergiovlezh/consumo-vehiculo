@@ -92,10 +92,9 @@ const TaskRow = ({
           ? 'catMaintenance'
           : 'catWarranty',
   )
-  const range = [task.startDate, task.dueDate].filter(Boolean).join(' → ')
   const sub = [
     cat,
-    range || null,
+    task.dueDate || null,
     task.dueOdo != null ? `${task.dueOdo.toLocaleString()} km` : null,
     finished
       ? t(L, task.status === 'done' ? 'stDone' : 'stCancelled')
