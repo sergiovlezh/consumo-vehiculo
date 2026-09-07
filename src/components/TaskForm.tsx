@@ -28,19 +28,14 @@ export const TaskForm = ({
   const [title, setTitle] = useState(initial?.title ?? '')
   const [details, setDetails] = useState(initial?.details ?? '')
   const [category, setCategory] = useState<TaskCategory>(initial?.category ?? 'general')
-  const [startDate, setStartDate] = useState(initial?.startDate ?? '')
   const [dueDate, setDueDate] = useState(initial?.dueDate ?? '')
   const [dueOdo, setDueOdo] = useState(initial?.dueOdo != null ? String(initial.dueOdo) : '')
   const [status, setStatus] = useState<TaskStatus>(initial?.status ?? 'pending')
 
-  // ponytail: document needs a due date; maintenance/warranty need a date or a
-  // km; general needs a title only.
+  // ponytail: title only — due date and due km are both optional.
   const odoN = parseFloat(dueOdo)
   const valid =
-    title.trim() !== '' &&
-    (dueOdo === '' || (isFinite(odoN) && odoN >= 0)) &&
-    (category === 'general' ||
-      (category === 'document' ? dueDate !== '' : dueDate !== '' || dueOdo !== ''))
+    title.trim() !== '' && (dueOdo === '' || (isFinite(odoN) && odoN >= 0))
 
   const submit = () => {
     if (!valid) return
@@ -49,7 +44,6 @@ export const TaskForm = ({
       title: title.trim(),
       details: details.trim() || undefined,
       category,
-      startDate: startDate || undefined,
       dueDate: dueDate || undefined,
       dueOdo: dueOdo === '' ? undefined : odoN,
       status,
@@ -98,25 +92,14 @@ export const TaskForm = ({
           }))}
         />
       </Field>
-      <div className="grid grid-cols-2 gap-2">
-        <Field label={t(L, 'startDate')}>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 px-3 py-2 min-h-[44px]"
-          />
-        </Field>
-        <Field label={t(L, 'dueDate')}>
-          <input
-            type="date"
-            value={dueDate}
-            min={startDate || undefined}
-            onChange={(e) => setDueDate(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 px-3 py-2 min-h-[44px]"
-          />
-        </Field>
-      </div>
+      <Field label={t(L, 'dueDate')}>
+        <input
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+          className="w-full rounded-xl border border-slate-300 px-3 py-2 min-h-[44px]"
+        />
+      </Field>
       <Field label={t(L, 'dueOdo')}>
         <input
           inputMode="decimal"
