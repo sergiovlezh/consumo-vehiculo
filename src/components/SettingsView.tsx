@@ -149,6 +149,16 @@ export const SettingsView = ({
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const downloadExport = () => {
+    const blob = new Blob([exportAllData], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `consumo-vehiculo-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="space-y-4 p-4">
       <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
@@ -289,9 +299,12 @@ export const SettingsView = ({
               value={exportAllData}
               className="h-40 w-full rounded-xl border border-slate-300 p-2 font-mono text-xs"
             />
-            <div className="mt-2">
+            <div className="mt-2 flex gap-2">
               <Button onClick={copyExport} className="min-h-[44px]">
                 {copied ? `${t(L, 'copied')} ✓` : t(L, 'copy')}
+              </Button>
+              <Button variant="secondary" onClick={downloadExport} className="min-h-[44px]">
+                {t(L, 'download')}
               </Button>
             </div>
           </div>
