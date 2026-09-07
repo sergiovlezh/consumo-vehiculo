@@ -101,7 +101,9 @@ export const SettingsView = ({
   const L = settings.language
   const [showExport, setShowExport] = useState(false)
   const [importText, setImportText] = useState('')
+  const [copied, setCopied] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const exportRef = useRef<HTMLTextAreaElement>(null)
 
   const exportAllData = (() => {
     try {
@@ -133,6 +135,18 @@ export const SettingsView = ({
     const reader = new FileReader()
     reader.onload = () => setImportText(String(reader.result ?? ''))
     reader.readAsText(file)
+  }
+
+  // ponytail: Clipboard API with legacy fallback for older browsers.
+  const copyExport = async () => {
+    try {
+      await navigator.clipboard.writeText(exportAllData)
+    } catch {
+      exportRef.current?.select()
+      document.execCommand('copy')
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
@@ -270,37 +284,42 @@ export const SettingsView = ({
           <div>
             <p className="mb-1 text-xs text-slate-500">{t(L, 'exportedHint')}</p>
             <textarea
+              ref={exportRef}
               readOnly
               value={exportAllData}
               className="h-40 w-full rounded-xl border border-slate-300 p-2 font-mono text-xs"
             />
+            <div className="mt-2">
+              <Button onClick={copyExport} className="min-h-[44px]">
+                {copied ? `${t(L, 'copied')} ✓` : t(L, 'copy')}
+              </Button>
+            </div>
           </div>
         ) : null}
-        <button
-          onClick={() => fileRef.current?.click()}
-          className="w-full rounded-xl border border-slate-300 py-3 min-h-[44px]"
-        >
-          {t(L, 'importData')}…
-        </button>
+        <textarea
+          value={importText}
+          onChange={(e) => setImportText(e.target.value)}
+          placeholder={t(L, 'pasteJsonHint')}
+          className="h-32 w-full rounded-xl border border-slate-300 p-2 font-mono text-xs"
+        />
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => fileRef.current?.click()} className="min-h-[44px]">
+            {t(L, 'importData')}…
+          </Button>
+          <Button onClick={doImport} disabled={!importText.trim()} className="min-h-[44px]">
+            {t(L, 'importData')}
+          </Button>
+        </div>
         <input
           ref={fileRef}
           type="file"
           accept="application/json"
           className="hidden"
-          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+          onChange={(e) => {
+            if (e.target.files?.[0]) handleFile(e.target.files[0])
+            e.target.value = ''
+          }}
         />
-        {importText ? (
-          <div>
-            <textarea
-              value={importText}
-              onChange={(e) => setImportText(e.target.value)}
-              className="h-32 w-full rounded-xl border border-slate-300 p-2 font-mono text-xs"
-            />
-            <Button onClick={doImport} className="min-h-[44px]">
-              {t(L, 'importData')}
-            </Button>
-          </div>
-        ) : null}
       </div>
     </div>
   )
